@@ -11,14 +11,14 @@ pm = Gauge('airquality_pm', 'Airquality PM metric', ['type'])
 
 def process_request(sensor):
 	sensor.sleep(sleep=False)
-	time.sleep(15)
+	time.sleep(30)
 	results = sensor.query()
 	sensor.sleep()
 
 	pm.labels('pm2.5').set(results[0])
 	pm.labels('pm10').set(results[1])
 
-	time.sleep(300)
+	time.sleep(360)
 
 if __name__ == '__main__':
 	start_http_server(9999)
