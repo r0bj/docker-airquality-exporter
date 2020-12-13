@@ -5,27 +5,24 @@
 from prometheus_client import start_http_server, Gauge
 import serial
 import time
+import sds011 # From https://github.com/mrk-its/py-sds011
 
 pm = Gauge('airquality_pm', 'Airquality PM metric', ['type'])
 
-ser = serial.Serial('/dev/ttyUSB0')
+def process_request(sensor):
+	sensor.sleep(sleep=False)
+	time.sleep(15)
+	results = sensor.query()
+	sensor.sleep()
 
-def process_request():
-	data = []
-	for index in range(0,10):
-		datum = ser.read()
-		data.append(datum)
+	pm.labels('pm2.5').set(results[0])
+	pm.labels('pm10').set(results[1])
 
-	pmtwofive = int.from_bytes(b''.join(data[2:4]), byteorder='little') / 10
-	pmten = int.from_bytes(b''.join(data[4:6]), byteorder='little') / 10
-
-	pm.labels('pm2.5').set(pmtwofive)
-	pm.labels('pm10').set(pmten)
-
-	time.sleep(30)
-
+	time.sleep(300)
 
 if __name__ == '__main__':
 	start_http_server(9999)
+
+	sensor = sds011.SDS011("/dev/ttyUSB0", use_query_mode=True)
 	while True:
-		process_request()
+		process_request(sensor)
