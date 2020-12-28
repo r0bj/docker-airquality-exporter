@@ -45,7 +45,7 @@ class SDS011(object):
 
         # workaround for executing self.set_report_mode() on sensor during sleep
         self.sleep(sleep=False)
-        time.sleep(3)
+        time.sleep(5)
 
         self.set_report_mode(active=not use_query_mode)
 
