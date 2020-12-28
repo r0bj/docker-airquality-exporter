@@ -11,7 +11,7 @@ pm = Gauge('airquality_pm', 'Airquality PM metric', ['type'])
 
 def process_request(sensor):
 	sensor.sleep(sleep=False)
-	time.sleep(30)
+	time.sleep(20)
 	results = sensor.query()
 	sensor.sleep()
 
