@@ -1,9 +1,16 @@
-FROM python:3.9.0-alpine3.12
+FROM golang:1.15.6 as builder
 
-RUN pip3 install pyserial prometheus_client
+WORKDIR /workspace
 
-# Library from https://github.com/ikalchev/py-sds011 (https://github.com/mrk-its/py-sds011)
-COPY sds011 /root/sds011
-COPY airquality-exporter.py /root/
+COPY go.mod go.sum ./
+RUN go mod download
 
-CMD ["/root/airquality-exporter.py"]
+COPY airquality-exporter.go .
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -a --ldflags '-w -extldflags "-static"' -tags netgo -installsuffix netgo -o airquality-exporter .
+
+
+FROM scratch
+
+COPY --from=builder /workspace/airquality-exporter /
+
+ENTRYPOINT ["/airquality-exporter"]
