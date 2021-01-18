@@ -12,7 +12,7 @@ import (
 )
 
 const (
-	ver string = "0.10"
+	ver string = "0.18"
 	logDateLayout string = "2006-01-02 15:04:05"
 )
 
@@ -61,7 +61,7 @@ func recordMetrics() {
 	for {
 		point, err := sensor.Get()
 		if err != nil {
-			log.Printf("ERROR: sensor.Get: %v", err)
+			log.Errorf("Getting sensor measurement error: %v", err)
 			continue
 		}
 
