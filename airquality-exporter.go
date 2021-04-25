@@ -12,7 +12,7 @@ import (
 )
 
 const (
-	ver string = "0.18"
+	ver string = "0.19"
 	logDateLayout string = "2006-01-02 15:04:05"
 )
 
@@ -20,6 +20,7 @@ var (
 	listenAddress = kingpin.Flag("web.listen-address", "Address to listen on for web interface and telemetry.").Default(":9999").String()
 	portPath = kingpin.Flag("port-path", "Serial port path.").Default("/dev/ttyUSB0").String()
 	cycle = kingpin.Flag("cycle", "Sensor cycle length in minutes.").Default("5").Int()
+	forceSetCycle = kingpin.Flag("force-set-cycle", "Force set cycle on every program start, avoids stalling sensor with no measurements.").Default("true").Bool()
 	verbose = kingpin.Flag("verbose", "Verbose mode.").Short('v').Bool()
 )
 
@@ -43,16 +44,29 @@ func recordMetrics() {
 		log.Fatalf("Cannot switch sensor to passive mode: %v", err)
 	}
 
-	currentCycle, err := sensor.Cycle()
-	if err != nil {
-		log.Fatalf("Cannot get current cycle: %v", err)
-	}
-	if currentCycle != uint8(*cycle) {
+	if *forceSetCycle {
 		log.Infof("Setting sensor cycle to %d minutes", *cycle)
 		if err := sensor.SetCycle(uint8(*cycle)); err != nil {
 			log.Fatalf("Cannot set current cycle: %v", err)
 		}
+	} else {
+		currentCycle, err := sensor.Cycle()
+		if err != nil {
+			log.Fatalf("Cannot get current cycle: %v", err)
+		}
+		if currentCycle != uint8(*cycle) {
+			log.Infof("Setting sensor cycle to %d minutes", *cycle)
+			if err := sensor.SetCycle(uint8(*cycle)); err != nil {
+				log.Fatalf("Cannot set current cycle: %v", err)
+			}
+		}
 	}
+
+	log.Infof("Setting sensor cycle to %d minutes", *cycle)
+	if err := sensor.SetCycle(uint8(*cycle)); err != nil {
+		log.Fatalf("Cannot set current cycle: %v", err)
+	}
+
 
 	if err := sensor.MakeActive(); err != nil {
 		log.Fatalf("Cannot switch sensor to active mode: %v", err)
