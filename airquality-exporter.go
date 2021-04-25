@@ -62,12 +62,6 @@ func recordMetrics() {
 		}
 	}
 
-	log.Infof("Setting sensor cycle to %d minutes", *cycle)
-	if err := sensor.SetCycle(uint8(*cycle)); err != nil {
-		log.Fatalf("Cannot set current cycle: %v", err)
-	}
-
-
 	if err := sensor.MakeActive(); err != nil {
 		log.Fatalf("Cannot switch sensor to active mode: %v", err)
 	}
