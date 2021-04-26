@@ -1,7 +1,9 @@
 package main
 
 import (
+	"fmt"
 	"net/http"
+	"time"
 
 	"gopkg.in/alecthomas/kingpin.v2"
 	log "github.com/sirupsen/logrus"
@@ -12,15 +14,18 @@ import (
 )
 
 const (
-	ver string = "0.19"
+	ver string = "0.24"
 	logDateLayout string = "2006-01-02 15:04:05"
+	// 0 retries, exit on failure
+	retries int = 0
+	apiCallTimeout int = 10
 )
 
 var (
 	listenAddress = kingpin.Flag("web.listen-address", "Address to listen on for web interface and telemetry.").Default(":9999").String()
 	portPath = kingpin.Flag("port-path", "Serial port path.").Default("/dev/ttyUSB0").String()
 	cycle = kingpin.Flag("cycle", "Sensor cycle length in minutes.").Default("5").Int()
-	forceSetCycle = kingpin.Flag("force-set-cycle", "Force set cycle on every program start, avoids stalling sensor with no measurements.").Default("true").Bool()
+	forceSetCycle = kingpin.Flag("force-set-cycle", "Force set cycle on every program start.").Default("true").Bool()
 	verbose = kingpin.Flag("verbose", "Verbose mode.").Short('v').Bool()
 )
 
@@ -32,6 +37,49 @@ var (
 	[]string{"type"})
 )
 
+func sensorMakePassive(sensor *sds011.Sensor) error {
+	var responseError error
+
+	response := make(chan error)
+	Loop:
+		for retry := 0; retry <= retries; retry++ {
+			if retry > 0 {
+				log.Debugf("Retrying (%d) API call", retry)
+				time.Sleep(time.Second * time.Duration(retry))
+			}
+
+			go func() {
+				if err := sensor.MakePassive(); err == nil {
+					response <- nil
+				} else {
+					log.Warnf("Cannot switch sensor to passive mode: %v", err)
+					response <- fmt.Errorf("Cannot switch sensor to passive mode: %v", err)
+				}
+			}()
+
+			select {
+			case err := <-response:
+				if err == nil {
+					responseError = nil
+					break Loop
+				} else {
+					responseError = err
+					continue Loop
+				}
+			case <-time.After(time.Second * time.Duration(apiCallTimeout)):
+				log.Warnf("Device API response timeout (%d retries)", retry)
+				responseError = fmt.Errorf("Device API response timeout (%d retries)", retry)
+				continue Loop
+			}
+		}
+
+	if responseError != nil {
+		return responseError
+	}
+
+	return nil
+}
+
 func recordMetrics() {
 	sensor, err := sds011.New(*portPath)
 	if err != nil {
@@ -39,8 +87,7 @@ func recordMetrics() {
 	}
 	defer sensor.Close()
 
-
-	if err := sensor.MakePassive(); err != nil {
+	if err := sensorMakePassive(sensor); err != nil {
 		log.Fatalf("Cannot switch sensor to passive mode: %v", err)
 	}
 
@@ -62,6 +109,7 @@ func recordMetrics() {
 		}
 	}
 
+	log.Info("Switching sensor to active mode")
 	if err := sensor.MakeActive(); err != nil {
 		log.Fatalf("Cannot switch sensor to active mode: %v", err)
 	}
